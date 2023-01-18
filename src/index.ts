@@ -2,10 +2,14 @@ import { AppDataSource } from "./data-source";
 import { Users } from "./entity/Users";
 import * as user from '@davse/users_manager';
 import "reflect-metadata";
+import MongoStore = require('connect-mongo');
 const express = require('express');
 var bodyParser = require('body-parser');
 var cors = require('cors');
 var cookies = require("cookie-parser");
+var session = require('express-session');
+
+const jwtExpirySeconds = 86400;
 
 var corsOptions = {
     origin: ['http://192.168.0.15:3000','http://localhost:3000'],
@@ -27,8 +31,26 @@ var corsOptions = {
 
   var repository = AppDataSource.getRepository(Users);
   var newuser = new Users();
+
+  app.use(session({
+    secret:'6f09f793af42f65ff3b8637a600554317552e41c',
+    saveUninitialized: false, // don't create session until something stored
+    resave: false, //don't save session if unmodified
+    cookie: { 
+      maxAge: jwtExpirySeconds * 1000, 
+      httpOnly: false,
+      path: "/",
+      sameSite: 'lax',
+      secure: false,
+    },
+    store: MongoStore.create({
+      mongoUrl: 'mongodb://localhost/sessions',
+      autoRemove: 'interval',
+      autoRemoveInterval: 5 // In minutes. Default
+    })
+  }));
   
-  app.post('/api/v1/singin', jsonParser, (req,res) => user.singIn(req,res,repository));
+  app.post('/api/v1/singin', jsonParser, (req,res) => user.singIn(req,res,repository,true));
   app.post('/api/v1/singup', jsonParser, (req,res) => user.singUp(req,res,repository,newuser));
   app.put('/api/v1/user', jsonParser, (req,res) => user.updateUser(req,res,repository));
   app.delete('/api/v1/user', jsonParser, (req,res) => user.logOut(req,res));
